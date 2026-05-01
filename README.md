@@ -1,5 +1,7 @@
 # App Tukar Ozzora Otomatis Tanpa Smart Contract
 
+Swap Token lama ke token Baru.
+
 Aplikasi ini memakai model backend treasury:
 
 1. User mengirim Ozzora lama ke wallet migrasi.
@@ -107,7 +109,6 @@ Data klaim tersimpan di `claims.json`.
 - Untuk produksi, ganti `claims.json` dengan database seperti PostgreSQL/Supabase/Firebase.
 - Untuk produksi, pakai RPC private/berbayar agar backend lebih stabil.
 - Backend ini tetap model custodial. Solusi paling trustless tetap smart contract.
-
 
 ## Batas Transaksi
 

@@ -1,3 +1,53 @@
+# Dependencies
 node_modules/
-.env
+jspm_packages/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime and local data
+pids
+*.pid
+*.seed
+*.pid.lock
 claims.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Coverage and build output
+coverage/
+*.lcov
+.nyc_output/
+build/
+dist/
+out/
+
+# Tool caches
+.cache/
+.parcel-cache/
+.vite/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Package artifacts
+*.tgz
+.npm/
+
+# Yarn / pnpm
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+.pnpm-store/
