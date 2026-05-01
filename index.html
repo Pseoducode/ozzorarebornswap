@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tukar Token Lama ke Token Baru</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="swap-panel" aria-labelledby="app-title">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Polygon migration</p>
+            <h1 id="app-title">Tukar Token 1:1</h1>
+          </div>
+          <button id="connectWallet" class="button secondary" type="button">Connect Wallet</button>
+        </header>
+
+        <div class="network-row">
+          <span id="networkStatus" class="status muted">Wallet belum tersambung</span>
+          <span class="fee-pill">Fee 10 POL</span>
+        </div>
+
+        <section class="swap-box" aria-label="Form tukar token">
+          <label for="amountInput">Jumlah token lama</label>
+          <div class="amount-row">
+            <input id="amountInput" inputmode="decimal" autocomplete="off" placeholder="0.0">
+            <span id="oldSymbol">OLD</span>
+          </div>
+
+          <div class="rate-row">
+            <span>Rasio</span>
+            <strong>1 OLD = 1 NEW</strong>
+          </div>
+
+          <div class="receive-row">
+            <span>Akan diterima</span>
+            <strong><span id="receiveAmount">0</span> <span id="newSymbol">NEW</span></strong>
+          </div>
+        </section>
+
+        <section class="balances" aria-label="Saldo dan allowance">
+          <div>
+            <span>Saldo token lama</span>
+            <strong id="oldBalance">-</strong>
+          </div>
+          <div>
+            <span>Penerima token lama</span>
+            <strong id="receiverAddress">-</strong>
+          </div>
+          <div>
+            <span>Fee native</span>
+            <strong id="nativeFee">10 POL</strong>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button id="swapButton" class="button primary wide" type="button" disabled>Kirim Permintaan Tukar</button>
+        </div>
+
+        <p id="message" class="message" role="status"></p>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
