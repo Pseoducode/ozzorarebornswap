@@ -68,7 +68,7 @@ NEW_TOKEN_ADDRESS: "0xC1B8db34e833180CCB34C7338934A3c1Cefd3204",
 OLD_TOKEN_RECEIVER: "0x9B97eb9943822cDb9C5a571A3904c81de4391ae1",
 PLATFORM_FEE_RECEIVER: "0x9B97eb9943822cDb9C5a571A3904c81de4391ae1",
 MAX_SWAP_AMOUNT: "25000000",
-BACKEND_URL: "http://localhost:8787"
+BACKEND_URL: window.location.origin === "null" ? "http://localhost:8787" : window.location.origin
 ```
 
 Buka app dari backend:
@@ -115,3 +115,12 @@ Data klaim tersimpan di `claims.json`.
 - Jumlah maksimum per transaksi adalah 25.000.000 Ozzora.
 - Fee platform tetap 10 POL untuk setiap transaksi.
 - Batas ini divalidasi di frontend dan backend.
+
+## Android / Handphone
+
+- Buka URL produksi dari HP, misalnya https://swap.domainanda.com.
+- Frontend dan backend harus bisa diakses dari domain HTTPS yang sama, atau ubah `BACKEND_URL` ke URL backend HTTPS.
+- Kalau wallet tidak terdeteksi, app menampilkan tombol MetaMask, Trust Wallet, dan OKX Wallet.
+- Tombol tersebut membuka halaman swap di browser dApp wallet mobile.
+- Setelah terbuka di browser dApp wallet, klik Connect Wallet seperti biasa.
+- Deep link mobile hanya bekerja baik jika app sudah memakai domain HTTPS, bukan localhost.

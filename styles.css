@@ -243,3 +243,33 @@ input {
     font-size: 34px;
   }
 }
+
+.mobile-wallet-panel {
+  background: rgba(19, 44, 36, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.mobile-wallet-panel[hidden] {
+  display: none;
+}
+
+.mobile-wallet-panel p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+
+.mobile-wallet-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 10px;
+}
+
+.mobile-wallet-actions .button {
+  width: 100%;
+  padding-inline: 12px;
+}

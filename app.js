@@ -12,6 +12,7 @@
     oldBalance: 0n,
     amountWei: 0n
   };
+  let walletEventsBound = false;
 
   const els = {
     connectWallet: document.getElementById("connectWallet"),
@@ -23,12 +24,76 @@
     oldBalance: document.getElementById("oldBalance"),
     receiverAddress: document.getElementById("receiverAddress"),
     nativeFee: document.getElementById("nativeFee"),
+    mobileWalletPanel: document.getElementById("mobileWalletPanel"),
+    openMetaMask: document.getElementById("openMetaMask"),
+    openTrustWallet: document.getElementById("openTrustWallet"),
+    openOkxWallet: document.getElementById("openOkxWallet"),
     networkStatus: document.getElementById("networkStatus"),
     message: document.getElementById("message")
   };
 
   function hasWallet() {
-    return Boolean(window.ethereum);
+    return Boolean(window.ethereum?.request);
+  }
+
+  function isMobileDevice() {
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }
+
+  function isLocalDappUrl(url) {
+    return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?/i.test(url);
+  }
+
+  function currentDappUrl() {
+    return window.location.href.split("#")[0];
+  }
+
+  function mobileWalletLinks() {
+    const url = currentDappUrl();
+    const encodedUrl = encodeURIComponent(url);
+    const withoutProtocol = url.replace(/^https?:\/\//i, "");
+    return {
+      metamask: `https://metamask.app.link/dapp/${withoutProtocol}`,
+      trust: `https://link.trustwallet.com/open_url?coin_id=966&url=${encodedUrl}`,
+      okx: `okx://wallet/dapp/url?dappUrl=${encodedUrl}`
+    };
+  }
+
+  function openMobileWallet(wallet) {
+    const links = mobileWalletLinks();
+    const target = links[wallet];
+    if (!target) return;
+    window.location.href = target;
+  }
+
+  function updateMobileWalletPanel() {
+    if (!els.mobileWalletPanel) return;
+    const shouldShow = isMobileDevice() && !hasWallet();
+    els.mobileWalletPanel.hidden = !shouldShow;
+  }
+
+  function bindWalletEvents() {
+    if (walletEventsBound || !hasWallet()) return;
+    walletEventsBound = true;
+    window.ethereum.on?.("accountsChanged", () => window.location.reload());
+    window.ethereum.on?.("chainChanged", () => window.location.reload());
+  }
+
+  function handleWalletAvailabilityChange() {
+    updateMobileWalletPanel();
+    bindWalletEvents();
+  }
+
+  function walletMissingMessage() {
+    if (!isMobileDevice()) {
+      return "Wallet tidak ditemukan. Buka lewat MetaMask atau wallet EIP-1193.";
+    }
+
+    if (isLocalDappUrl(currentDappUrl())) {
+      return "Wallet tidak ditemukan. Di HP, buka URL produksi HTTPS dari browser dApp wallet. Localhost komputer tidak bisa dibuka langsung dari Android.";
+    }
+
+    return "Wallet tidak ditemukan. Pilih wallet mobile di bawah, lalu Connect Wallet dari browser dApp wallet.";
   }
 
   function validAddress(address) {
@@ -204,7 +269,8 @@
 
   async function connectWallet() {
     if (!hasWallet()) {
-      setMessage("Wallet tidak ditemukan. Buka lewat MetaMask atau wallet EIP-1193.", "error");
+      updateMobileWalletPanel();
+      setMessage(walletMissingMessage(), "error");
       return;
     }
     if (!isConfigured()) {
@@ -212,12 +278,19 @@
       return;
     }
 
-    const accounts = await request("eth_requestAccounts");
-    state.account = accounts[0];
-    els.connectWallet.textContent = shortAddress(state.account);
-    await switchToPolygon();
-    await refresh();
-    setMessage("Wallet tersambung. Masukkan jumlah token lama untuk dikirim.", "success");
+    try {
+      const accounts = await request("eth_requestAccounts");
+      if (!accounts?.[0]) throw new Error("Wallet belum memberikan akses akun.");
+      state.account = accounts[0];
+      els.connectWallet.textContent = shortAddress(state.account);
+      updateMobileWalletPanel();
+      await switchToPolygon();
+      await refresh();
+      setMessage("Wallet tersambung. Masukkan jumlah token lama untuk dikirim.", "success");
+    } catch (error) {
+      setMessage(error.message || "Gagal menghubungkan wallet.", "error");
+      updateButtons();
+    }
   }
 
   async function sendSwapRequest() {
@@ -274,18 +347,21 @@
     els.nativeFee.textContent = `${config.PLATFORM_FEE_POL} POL`;
     els.receiverAddress.textContent = shortAddress(config.OLD_TOKEN_RECEIVER);
     els.connectWallet.addEventListener("click", connectWallet);
+    els.openMetaMask?.addEventListener("click", () => openMobileWallet("metamask"));
+    els.openTrustWallet?.addEventListener("click", () => openMobileWallet("trust"));
+    els.openOkxWallet?.addEventListener("click", () => openMobileWallet("okx"));
     els.swapButton.addEventListener("click", sendSwapRequest);
     els.amountInput.addEventListener("input", handleAmountInput);
+    handleWalletAvailabilityChange();
+    window.addEventListener("ethereum#initialized", handleWalletAvailabilityChange, { once: true });
+    setTimeout(handleWalletAvailabilityChange, 1200);
 
     if (!isConfigured()) {
       setNetworkStatus("Konfigurasi belum lengkap", "error");
       setMessage("Ganti alamat placeholder di config.js sebelum dipakai.");
     }
 
-    if (hasWallet()) {
-      window.ethereum.on?.("accountsChanged", () => window.location.reload());
-      window.ethereum.on?.("chainChanged", () => window.location.reload());
-    }
+    bindWalletEvents();
   }
 
   init();

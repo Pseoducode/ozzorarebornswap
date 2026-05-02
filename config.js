@@ -2,7 +2,7 @@ window.SWAP_APP_CONFIG = {
   POLYGON_CHAIN_ID: "0x89",
   POLYGON_RPC_URLS: ["https://polygon-rpc.com"],
   POLYGON_EXPLORER: "https://polygonscan.com",
-  BACKEND_URL: "http://localhost:8787",
+  BACKEND_URL: window.location.origin === "null" ? "http://localhost:8787" : window.location.origin,
 
   OLD_TOKEN_ADDRESS: "0x90aED5320D64FEcB6003ffC561F494dFE9f09a0c",
   NEW_TOKEN_ADDRESS: "0xC1B8db34e833180CCB34C7338934A3c1Cefd3204",
