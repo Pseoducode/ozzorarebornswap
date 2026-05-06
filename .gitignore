@@ -21,6 +21,7 @@ pids
 *.seed
 *.pid.lock
 claims.json
+claim-failures.jsonl
 
 # Environment files
 .env
