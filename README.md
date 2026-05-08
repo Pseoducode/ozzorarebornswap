@@ -71,6 +71,19 @@ MAX_SWAP_AMOUNT: "25000000",
 BACKEND_URL: window.location.origin === "null" ? "http://localhost:8787" : window.location.origin
 ```
 
+Opsional di `.env` untuk membuat backend lebih sabar menunggu RPC/receipt:
+
+```env
+TX_POLL_ATTEMPTS=80
+TX_POLL_INTERVAL_MS=3000
+```
+
+Token Ozzora Reborn saat ini memotong transfer 5%. Agar user tetap menerima net 1:1, backend perlu mengirim jumlah gross:
+
+```env
+NEW_TOKEN_TRANSFER_TAX_BPS=500
+```
+
 Buka app dari backend:
 
 ```txt
@@ -98,7 +111,8 @@ Backend memverifikasi:
 - Tujuan fee adalah `PLATFORM_FEE_RECEIVER`.
 - Nilai fee tepat `10 POL`.
 - Hash transaksi belum pernah diklaim.
-- Treasury punya saldo Ozzora baru yang cukup.
+- Klaim yang sama bisa dicoba ulang tanpa membuat user bayar ulang.
+- Treasury punya saldo Ozzora baru yang cukup, termasuk gross-up tax transfer token baru.
 
 Data klaim tersimpan di `claims.json`.
 
@@ -120,7 +134,14 @@ Data klaim tersimpan di `claims.json`.
 
 - Buka URL produksi dari HP, misalnya https://swap.domainanda.com.
 - Frontend dan backend harus bisa diakses dari domain HTTPS yang sama, atau ubah `BACKEND_URL` ke URL backend HTTPS.
-- Kalau wallet tidak terdeteksi, app menampilkan tombol MetaMask, Trust Wallet, dan OKX Wallet.
+- Kalau wallet tidak terdeteksi, app menampilkan tombol MetaMask, TokenPocket, Bitget Wallet, Trust Wallet, dan OKX Wallet.
 - Tombol tersebut membuka halaman swap di browser dApp wallet mobile.
 - Setelah terbuka di browser dApp wallet, klik Connect Wallet seperti biasa.
 - Deep link mobile hanya bekerja baik jika app sudah memakai domain HTTPS, bukan localhost.
+- TokenPocket dan Bitget Wallet juga bisa langsung membuka app lewat deep link mobile. App mengecek provider khusus mereka sebelum fallback ke `window.ethereum`.
+
+## Jika Transfer Sempat Gagal di App
+
+- Kalau token lama dan fee sudah terkirim tapi backend/RPC belum melihat receipt, app menyimpan data pending di browser.
+- Klik `Lanjutkan Fee` atau `Lanjutkan Klaim` dengan wallet yang sama. App akan meneruskan dari hash transaksi yang sudah ada tanpa mengirim token/fee kedua kalinya.
+- Jangan hapus cache browser sebelum klaim selesai, karena data pending disimpan di `localStorage`.

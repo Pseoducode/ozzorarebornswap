@@ -1,4 +1,5 @@
 window.SWAP_APP_CONFIG = {
+  DAPP_NAME: "Ozzora Swap",
   POLYGON_CHAIN_ID: "0x89",
   POLYGON_RPC_URLS: ["https://polygon-rpc.com"],
   POLYGON_EXPLORER: "https://polygonscan.com",

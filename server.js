@@ -11,9 +11,11 @@ const CLAIM_FAILURES_FILE = path.join(__dirname, "claim-failures.jsonl");
 const TRANSFER_SELECTOR = "0xa9059cbb";
 const TX_POLL_ATTEMPTS = Number(process.env.TX_POLL_ATTEMPTS || 80);
 const TX_POLL_INTERVAL_MS = Number(process.env.TX_POLL_INTERVAL_MS || 3000);
+const BPS_DENOMINATOR = 10000n;
 const ERC20_ABI = [
   "function transfer(address to, uint256 amount) returns (bool)",
-  "function balanceOf(address account) view returns (uint256)"
+  "function balanceOf(address account) view returns (uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)"
 ];
 
 const requiredEnv = [
@@ -70,6 +72,27 @@ function maxSwapAmountWei() {
 
 function tokenDecimals() {
   return Number(process.env.TOKEN_DECIMALS || 18);
+}
+
+function parseBasisPoints(key, fallback = "0") {
+  const raw = String(process.env[key] ?? fallback).trim();
+  if (!/^\d+$/.test(raw)) throw new Error(`${key} must be an integer basis point value`);
+
+  const value = BigInt(raw);
+  if (value >= BPS_DENOMINATOR) throw new Error(`${key} must be lower than 10000`);
+  return value;
+}
+
+function newTokenTransferTaxBps() {
+  return parseBasisPoints("NEW_TOKEN_TRANSFER_TAX_BPS", "0");
+}
+
+function grossUpPayoutAmount(netAmount) {
+  const taxBps = newTokenTransferTaxBps();
+  if (taxBps === 0n) return netAmount;
+
+  const netBps = BPS_DENOMINATOR - taxBps;
+  return (netAmount * BPS_DENOMINATOR + netBps - 1n) / netBps;
 }
 
 function publicError(error) {
@@ -208,21 +231,23 @@ async function verifyFeeTransfer({ feeTxHash, user }) {
 }
 
 async function assertPayoutReady({ user, amount }) {
+  const payoutAmount = grossUpPayoutAmount(amount);
+  const transferTaxBps = newTokenTransferTaxBps();
   const [treasuryBalance, treasuryPolBalance] = await Promise.all([
     newToken.balanceOf(treasury.address),
     provider.getBalance(treasury.address)
   ]);
 
-  if (treasuryBalance < amount) {
-    throw new Error(`Treasury has insufficient new token balance. Available ${ethers.formatUnits(treasuryBalance, tokenDecimals())}, requested ${ethers.formatUnits(amount, tokenDecimals())}`);
+  if (treasuryBalance < payoutAmount) {
+    throw new Error(`Treasury has insufficient new token balance. Available ${ethers.formatUnits(treasuryBalance, tokenDecimals())}, requested net ${ethers.formatUnits(amount, tokenDecimals())}, payout gross ${ethers.formatUnits(payoutAmount, tokenDecimals())}`);
   }
 
   let transferResult;
   let gasEstimate;
   try {
-    transferResult = await newToken.transfer.staticCall(user, amount);
+    transferResult = await newToken.transfer.staticCall(user, payoutAmount);
     if (transferResult === false) throw new Error("New token transfer returned false");
-    gasEstimate = await newToken.transfer.estimateGas(user, amount);
+    gasEstimate = await newToken.transfer.estimateGas(user, payoutAmount);
   } catch (error) {
     throw new Error(`New token payout preflight failed: ${publicError(error)}`);
   }
@@ -240,6 +265,8 @@ async function assertPayoutReady({ user, amount }) {
   }
 
   return {
+    payoutAmount,
+    transferTaxBps,
     treasuryBalance,
     treasuryPolBalance,
     gasEstimate,
@@ -247,6 +274,29 @@ async function assertPayoutReady({ user, amount }) {
     requiredPol,
     transferResult
   };
+}
+
+function receivedAmountFromPayoutReceipt(receipt, user) {
+  let received = 0n;
+
+  for (const log of receipt.logs || []) {
+    if (!sameAddress(log.address, process.env.NEW_TOKEN_ADDRESS)) continue;
+
+    try {
+      const parsed = iface.parseLog(log);
+      if (
+        parsed?.name === "Transfer" &&
+        sameAddress(parsed.args.from, treasury.address) &&
+        sameAddress(parsed.args.to, user)
+      ) {
+        received += parsed.args.value;
+      }
+    } catch (error) {
+      // Ignore non-ERC20 logs emitted by token hooks.
+    }
+  }
+
+  return received;
 }
 
 async function sendPayoutAndRecordClaim({ user, amount, tokenTxHash, feeTxHash }) {
@@ -263,27 +313,37 @@ async function sendPayoutAndRecordClaim({ user, amount, tokenTxHash, feeTxHash }
         if (!sameUser || !sameAmount) {
           throw new Error("Transaction already claimed by another wallet or amount");
         }
+        if (existingClaim.payout.payoutUnderpaid) {
+          throw new Error(`Previous payout underpaid user. Manual review required for payout ${existingClaim.payoutTxHash}`);
+        }
       }
       return { alreadyClaimed: true, payoutTxHash: existingClaim.payoutTxHash };
     }
 
-    await assertPayoutReady({ user, amount });
+    const preflight = await assertPayoutReady({ user, amount });
 
     let payoutTx;
     let payoutReceipt;
     try {
-      payoutTx = await newToken.transfer(user, amount);
+      payoutTx = await newToken.transfer(user, preflight.payoutAmount);
       payoutReceipt = await payoutTx.wait(Number(process.env.MIN_CONFIRMATIONS || 1));
     } catch (error) {
       treasurySigner.reset();
       throw new Error(`New token payout failed: ${publicError(error)}`);
     }
 
+    const receivedAmount = receivedAmountFromPayoutReceipt(payoutReceipt, user);
+    const payoutUnderpaid = receivedAmount < amount;
+
     claims.tokenTxHashes[tokenTxHash] = payoutTx.hash;
     claims.feeTxHashes[feeTxHash] = payoutTx.hash;
     claims.payouts.push({
       user: normalize(user),
       amountWei: amount.toString(),
+      payoutAmountWei: preflight.payoutAmount.toString(),
+      receivedAmountWei: receivedAmount.toString(),
+      newTokenTransferTaxBps: preflight.transferTaxBps.toString(),
+      payoutUnderpaid,
       tokenTxHash,
       feeTxHash,
       payoutTxHash: payoutTx.hash,
@@ -291,6 +351,10 @@ async function sendPayoutAndRecordClaim({ user, amount, tokenTxHash, feeTxHash }
       createdAt: new Date().toISOString()
     });
     saveClaims(claims);
+
+    if (payoutUnderpaid) {
+      throw new Error(`New token payout underpaid user. Expected net ${ethers.formatUnits(amount, tokenDecimals())}, received ${ethers.formatUnits(receivedAmount, tokenDecimals())}. Payout ${payoutTx.hash} was recorded and needs manual review.`);
+    }
 
     return { alreadyClaimed: false, payoutTxHash: payoutTx.hash };
   });
@@ -322,6 +386,9 @@ app.get("/api/health", async (req, res) => {
 
       const preflight = await assertPayoutReady({ user, amount });
       payload.payoutPreflight = {
+        payoutAmount: preflight.payoutAmount.toString(),
+        payoutAmountFormatted: ethers.formatUnits(preflight.payoutAmount, tokenDecimals()),
+        newTokenTransferTaxBps: preflight.transferTaxBps.toString(),
         gasEstimate: preflight.gasEstimate.toString(),
         gasPrice: preflight.gasPrice ? preflight.gasPrice.toString() : null,
         requiredPol: preflight.requiredPol ? preflight.requiredPol.toString() : null
@@ -356,6 +423,9 @@ app.post("/api/claim", async (req, res) => {
         const sameAmount = BigInt(existingClaim.payout.amountWei) === amount;
         if (!sameUser || !sameAmount) {
           return res.status(409).json({ ok: false, error: "Transaction already claimed by another wallet or amount" });
+        }
+        if (existingClaim.payout.payoutUnderpaid) {
+          return res.status(409).json({ ok: false, error: `Previous payout underpaid user. Manual review required for payout ${existingClaim.payoutTxHash}` });
         }
       }
       return res.json({ ok: true, alreadyClaimed: true, payoutTxHash: existingClaim.payoutTxHash });

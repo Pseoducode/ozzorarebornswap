@@ -360,8 +360,11 @@
     }
 
     const available = BigInt(payload.newTokenBalance || "0");
-    if (available < state.amountWei) {
-      throw new Error(`Treasury hanya punya ${formatUnits(available, config.TOKEN_DECIMALS)} ${config.NEW_TOKEN_SYMBOL}. Kurangi jumlah swap atau isi saldo token baru dulu.`);
+    const payoutAmount = payload.payoutPreflight?.payoutAmount
+      ? BigInt(payload.payoutPreflight.payoutAmount)
+      : state.amountWei;
+    if (available < payoutAmount) {
+      throw new Error(`Treasury hanya punya ${formatUnits(available, config.TOKEN_DECIMALS)} ${config.NEW_TOKEN_SYMBOL}. Dibutuhkan ${formatUnits(payoutAmount, config.TOKEN_DECIMALS)} agar user menerima penuh. Kurangi jumlah swap atau isi saldo token baru dulu.`);
     }
 
     const polBalance = BigInt(payload.treasuryPolBalance || "0");
