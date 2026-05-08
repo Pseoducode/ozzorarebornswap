@@ -78,7 +78,7 @@ TX_POLL_ATTEMPTS=80
 TX_POLL_INTERVAL_MS=3000
 ```
 
-Token Ozzora Reborn saat ini memotong transfer 5%. Agar user tetap menerima net 1:1, backend perlu mengirim jumlah gross:
+Token Ozzora Reborn saat ini memotong transfer 5%. Agar user tetap menerima net 1:1, backend default mengirim jumlah gross dengan tax 500 bps. Nilai ini bisa dioverride:
 
 ```env
 NEW_TOKEN_TRANSFER_TAX_BPS=500

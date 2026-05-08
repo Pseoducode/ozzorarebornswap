@@ -84,7 +84,7 @@ function parseBasisPoints(key, fallback = "0") {
 }
 
 function newTokenTransferTaxBps() {
-  return parseBasisPoints("NEW_TOKEN_TRANSFER_TAX_BPS", "0");
+  return parseBasisPoints("NEW_TOKEN_TRANSFER_TAX_BPS", "500");
 }
 
 function grossUpPayoutAmount(netAmount) {
